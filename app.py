@@ -74,6 +74,24 @@ with st.sidebar:
     )
     
     st.markdown("---")
+    st.subheader("🎙️ Voice Input")
+    voice_file = st.audio_input("Record your message:")
+    
+    if voice_file:
+        with st.status("Transcribing voice...", expanded=False):
+            try:
+                # Transcribe using Whisper-large-v3
+                transcription = client.audio.transcriptions.create(
+                    file=("recorded_audio.wav", voice_file.read()),
+                    model="whisper-large-v3",
+                    response_format="text",
+                )
+                # Store transcribed text to process it in the main loop
+                st.session_state.transcribed_text = transcription
+            except Exception as e:
+                st.error(f"Transcription error: {e}")
+
+    st.markdown("---")
     if st.button("Clear Chat History"):
         st.session_state.messages = []
         if "last_audio" in st.session_state:
@@ -82,18 +100,26 @@ with st.sidebar:
 
 st.markdown("---")
 
-# Initialize session state for chat history
+# Initialize session state for chat history and transcription
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "transcribed_text" not in st.session_state:
+    st.session_state.transcribed_text = None
 
 # Display chat history
-for message in st.session_state.messages:
+for message in st.session_state.messages: 
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
-        # If there's audio associated with this message (optional, but for now we only play latest)
         
-# Chat input
-if prompt := st.chat_input("Ask me anything..."):
+# Chat logic: Check for text input or voice input
+prompt = st.chat_input("Ask me anything...")
+
+# If voice input was captured, override the empty prompt
+if st.session_state.transcribed_text:
+    prompt = st.session_state.transcribed_text
+    st.session_state.transcribed_text = None # Clear it immediately
+
+if prompt:
     # Add user message to history
     st.session_state.messages.append({"role": "user", "content": prompt})
     
